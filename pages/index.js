@@ -7,51 +7,79 @@ export default function Home() {
   const [enhanced, setEnhanced] = useState("");
   const [loadingTranscribe, setLoadingTranscribe] = useState(false);
   const [loadingEnhance, setLoadingEnhance] = useState(false);
+  const [error, setError] = useState("");
   const mediaRecorderRef = useRef(null);
 
   const startRecording = async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const recorder = new MediaRecorder(stream);
-    mediaRecorderRef.current = recorder;
-    const chunks = [];
-    recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
-    recorder.onstop = () => setAudioBlob(new Blob(chunks, { type: "audio/webm" }));
-    recorder.start();
-    setRecording(true);
+    setError("");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      const chunks = [];
+      recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+      recorder.onstop = () => setAudioBlob(new Blob(chunks, { type: "audio/webm" }));
+      recorder.start();
+      setRecording(true);
+    } catch (err) {
+      setError("Could not access microphone.");
+    }
   };
 
   const stopRecording = () => {
-    mediaRecorderRef.current.stop();
+    mediaRecorderRef.current?.stop();
     setRecording(false);
   };
 
   const transcribe = async () => {
     if (!audioBlob) return;
+    setError("");
     setLoadingTranscribe(true);
-    const form = new FormData();
-    form.append("audio", audioBlob, "recording.webm");
-    const res = await fetch("/api/transcribe", { method: "POST", body: form });
-    const json = await res.json();
-    setTranscript(json.transcript);
-    setLoadingTranscribe(false);
+    try {
+      const form = new FormData();
+      form.append("audio", audioBlob, "recording.webm");
+      const res = await fetch("/api/transcribe", { method: "POST", body: form });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Transcribe failed (${res.status})`);
+      }
+      const json = await res.json();
+      setTranscript(json.transcript);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoadingTranscribe(false);
+    }
   };
 
   const enhanceText = async () => {
     if (!transcript) return;
+    setError("");
     setLoadingEnhance(true);
-    const res = await fetch("/api/enhance", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: transcript })
-    });
-    const json = await res.json();
-    setEnhanced(json.enhanced);
-    setLoadingEnhance(false);
+    try {
+      const res = await fetch("/api/enhance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: transcript })
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Enhance failed (${res.status})`);
+      }
+      const json = await res.json();
+      setEnhanced(json.enhanced);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoadingEnhance(false);
+    }
   };
 
   return (
     <div className="p-8 max-w-xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">Speech Enhancer POC</h1>
+
+      {error && <p className="text-red-500 mb-4">{error}</p>}
 
       {!recording ? (
         <button onClick={startRecording} className="px-4 py-2 bg-green-600 text-white rounded mr-2">
@@ -70,7 +98,7 @@ export default function Home() {
       )}
 
       {transcript && (
-        <>   
+        <>
           <h2 className="mt-6 font-semibold">Transcript:</h2>
           <p className="whitespace-pre-wrap mb-4">{transcript}</p>
         </>
