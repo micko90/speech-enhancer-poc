@@ -18,10 +18,11 @@ export default function Home() {
       mediaRecorderRef.current = recorder;
       const chunks = [];
       recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
-      recorder.onstop = () => setAudioBlob(new Blob(chunks, { type: "audio/webm" }));
+      recorder.onstop = () =>
+        setAudioBlob(new Blob(chunks, { type: "audio/webm" }));
       recorder.start();
       setRecording(true);
-    } catch (err) {
+    } catch {
       setError("Could not access microphone.");
     }
   };
@@ -39,12 +40,9 @@ export default function Home() {
       const form = new FormData();
       form.append("audio", audioBlob, "recording.webm");
       const res = await fetch("/api/transcribe", { method: "POST", body: form });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || `Transcribe failed (${res.status})`);
-      }
-      const json = await res.json();
-      setTranscript(json.transcript);
+      if (!res.ok) throw new Error((await res.json()).error || `Error ${res.status}`);
+      const { transcript: txt } = await res.json();
+      setTranscript(txt);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -62,12 +60,9 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: transcript })
       });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || `Enhance failed (${res.status})`);
-      }
-      const json = await res.json();
-      setEnhanced(json.enhanced);
+      if (!res.ok) throw new Error((await res.json()).error || `Error ${res.status}`);
+      const { enhanced: en } = await res.json();
+      setEnhanced(en);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -78,21 +73,29 @@ export default function Home() {
   return (
     <div className="p-8 max-w-xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">Speech Enhancer POC</h1>
-
       {error && <p className="text-red-500 mb-4">{error}</p>}
 
       {!recording ? (
-        <button onClick={startRecording} className="px-4 py-2 bg-green-600 text-white rounded mr-2">
+        <button
+          onClick={startRecording}
+          className="px-4 py-2 bg-green-600 text-white rounded mr-2"
+        >
           Start Recording
         </button>
       ) : (
-        <button onClick={stopRecording} className="px-4 py-2 bg-red-600 text-white rounded mr-2">
+        <button
+          onClick={stopRecording}
+          className="px-4 py-2 bg-red-600 text-white rounded mr-2"
+        >
           Stop Recording
         </button>
       )}
 
       {audioBlob && !transcript && (
-        <button onClick={transcribe} className="mt-4 px-4 py-2 bg-yellow-600 text-white rounded">
+        <button
+          onClick={transcribe}
+          className="mt-4 px-4 py-2 bg-yellow-600 text-white rounded"
+        >
           {loadingTranscribe ? "Transcribing…" : "Transcribe Speech"}
         </button>
       )}
@@ -105,7 +108,10 @@ export default function Home() {
       )}
 
       {transcript && !enhanced && (
-        <button onClick={enhanceText} className="mt-2 px-4 py-2 bg-blue-600 text-white rounded">
+        <button
+          onClick={enhanceText}
+          className="mt-2 px-4 py-2 bg-blue-600 text-white rounded"
+        >
           {loadingEnhance ? "Enhancing…" : "Enhance Text"}
         </button>
       )}
