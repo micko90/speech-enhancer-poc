@@ -70,7 +70,7 @@ export default function Home() {
       )}
 
       {transcript && (
-        <>
+        <>   
           <h2 className="mt-6 font-semibold">Transcript:</h2>
           <p className="whitespace-pre-wrap mb-4">{transcript}</p>
         </>
