@@ -11,11 +11,12 @@ export default function Home() {
 
   const startRecording = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorderRef.current = new MediaRecorder(stream);
+    const recorder = new MediaRecorder(stream);
+    mediaRecorderRef.current = recorder;
     const chunks = [];
-    mediaRecorderRef.current.ondataavailable = (e) => e.data.size && chunks.push(e.data);
-    mediaRecorderRef.current.onstop = () => setAudioBlob(new Blob(chunks, { type: "audio/webm" }));
-    mediaRecorderRef.current.start();
+    recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+    recorder.onstop = () => setAudioBlob(new Blob(chunks, { type: "audio/webm" }));
+    recorder.start();
     setRecording(true);
   };
 
@@ -68,8 +69,25 @@ export default function Home() {
         </button>
       )}
 
-      {transcript && !enhanced && (
+      {transcript && (
         <>
           <h2 className="mt-6 font-semibold">Transcript:</h2>
-          <p className="whitespace-pre-wrap">{transcript}</p>
-          <button onClick={enhanceText} className="mt-4 px-4 py-2 bg-blue-
+          <p className="whitespace-pre-wrap mb-4">{transcript}</p>
+        </>
+      )}
+
+      {transcript && !enhanced && (
+        <button onClick={enhanceText} className="mt-2 px-4 py-2 bg-blue-600 text-white rounded">
+          {loadingEnhance ? "Enhancing…" : "Enhance Text"}
+        </button>
+      )}
+
+      {enhanced && (
+        <div className="mt-6">
+          <h2 className="font-semibold">Enhanced Pitch:</h2>
+          <p className="whitespace-pre-wrap">{enhanced}</p>
+        </div>
+      )}
+    </div>
+  );
+}
